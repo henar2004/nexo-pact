@@ -4,8 +4,6 @@
 planificado, ejecutado, revisado y corregido automáticamente.**
 
 [Abrir Nexo Research](https://create-react-app-henar2004s-projects.vercel.app/)
-·
-[Ver el código en GitHub](https://github.com/henar2004/create-react-app)
 
 > La aplicación está desplegada en Vercel. Si la protección de despliegues está
 > activada, Vercel solicitará iniciar sesión antes de mostrarla.
