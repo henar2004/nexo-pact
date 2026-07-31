@@ -1,1215 +1,969 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 
-const AGENTS = {
-  researcher: {
-    name: 'Investigador',
-    code: 'INV',
-    description: 'Recopila hechos, contexto y evidencias.',
-    icon: 'search',
-  },
-  analyst: {
-    name: 'Analista',
-    code: 'ANA',
-    description: 'Compara perspectivas y contradicciones.',
-    icon: 'chart',
-  },
-  verifier: {
-    name: 'Verificador',
-    code: 'VER',
-    description: 'Comprueba el respaldo de las conclusiones.',
-    icon: 'shield',
-  },
-  writer: {
-    name: 'Redactor',
-    code: 'RED',
-    description: 'Convierte el análisis en una pieza clara.',
-    icon: 'pen',
-  },
-  editor: {
-    name: 'Editor',
-    code: 'EDI',
-    description: 'Revisa tono, estructura y requisitos.',
-    icon: 'check',
-  },
-  synthesizer: {
-    name: 'Sintetizador',
-    code: 'SIN',
-    description: 'Une resultados en la entrega final.',
-    icon: 'layers',
-  },
-};
-
 const GITHUB_URL = 'https://github.com/henar2004/create-react-app';
+const MAX_PARTICIPANTS = 6;
+const MAX_ROUNDS = 3;
 
-const MISSION_TYPES = [
-  {
-    value: 'Resumen',
-    label: 'Resumir',
-    description: 'Reduce uno o varios textos a sus ideas esenciales.',
-    icon: 'layers',
-    placeholder:
-      'Ej.: Resume estas fuentes en cinco puntos y termina con una conclusión breve.',
-    actionLabel: 'Crear resumen',
-  },
-  {
-    value: 'Comparativa',
-    label: 'Comparar',
-    description: 'Encuentra coincidencias, diferencias y contradicciones.',
-    icon: 'chart',
-    placeholder:
-      'Ej.: Compara cómo presenta cada fuente el tema y separa hechos de opiniones.',
-    actionLabel: 'Iniciar comparativa',
-  },
-  {
-    value: 'Verificación',
-    label: 'Verificar',
-    description: 'Comprueba si una afirmación está respaldada.',
-    icon: 'shield',
-    placeholder:
-      'Ej.: Comprueba la afirmación principal y explica qué está demostrado y qué no.',
-    actionLabel: 'Verificar contenido',
-  },
-  {
-    value: 'Informe',
-    label: 'Redactar',
-    description: 'Convierte el material en un informe o artículo.',
-    icon: 'pen',
-    placeholder:
-      'Ej.: Crea un informe neutral con contexto, hallazgos y una conclusión.',
-    actionLabel: 'Crear informe',
-  },
+const PERSON_COLORS = [
+  '#ff6b4a',
+  '#6f6bf4',
+  '#13a984',
+  '#e29a28',
+  '#d65a92',
+  '#3587d4',
 ];
 
-const DEMO_MISSIONS = [
-  {
-    name: 'Dos versiones de una noticia',
-    outputType: 'Comparativa',
-    request:
-      'Compara las dos versiones, distingue hechos de interpretaciones y redacta una conclusión neutral de un máximo de 250 palabras.',
-    sources: `FUENTE A
-El ayuntamiento anunció que el nuevo carril bici del centro estará terminado en septiembre. Según el comunicado, el proyecto reducirá el tráfico y ha recibido una inversión de 1,2 millones de euros.
-
-FUENTE B
-Las obras del carril bici continúan en el centro. Comerciantes de la zona afirman que los trabajos están reduciendo temporalmente el acceso a sus negocios. El ayuntamiento mantiene septiembre como fecha prevista de finalización.`,
-  },
-  {
-    name: 'Resumen de una propuesta cultural',
-    outputType: 'Resumen',
-    request:
-      'Resume la propuesta en cinco puntos, identifica sus objetivos principales y termina con una conclusión de dos frases.',
-    sources: `PROPUESTA DEL CENTRO CULTURAL
-El centro cultural del barrio propone ampliar su horario hasta las diez de la noche durante los fines de semana. La iniciativa incluye talleres gratuitos de fotografía, clubes de lectura y sesiones de cine dirigidas a jóvenes y familias.
-
-El proyecto se probará durante tres meses. La dirección medirá la asistencia, realizará encuestas de satisfacción y revisará el coste de personal antes de decidir si mantiene el nuevo horario.`,
-  },
-  {
-    name: 'Verificación de una afirmación',
-    outputType: 'Verificación',
-    request:
-      'Comprueba si la afirmación “el programa duplicó la participación” está respaldada por los datos. Emite un veredicto y explica los matices.',
-    sources: `AFIRMACIÓN
-“El nuevo programa deportivo duplicó la participación juvenil durante su primer trimestre.”
-
-DATOS DISPONIBLES
-Antes del programa se registraron 180 participantes por trimestre. Durante el primer trimestre del nuevo programa participaron 315 jóvenes. La organización también amplió de cuatro a seis el número de actividades ofrecidas.`,
-  },
-  {
-    name: 'Informe sobre una prueba piloto',
-    outputType: 'Informe',
-    request:
-      'Redacta un informe breve y profesional con contexto, resultados, limitaciones y recomendaciones para la siguiente fase.',
-    sources: `RESULTADOS DE LA PRUEBA PILOTO
-Una biblioteca instaló durante seis semanas un sistema de préstamo automático. Participaron 420 usuarios y se realizaron 1.180 préstamos. El 82 % completó el proceso sin ayuda y el tiempo medio de espera bajó de siete a tres minutos.
-
-Se registraron dificultades con carnés antiguos y durante dos interrupciones de conexión. El personal propone mantener asistencia presencial en horas punta y renovar los lectores de códigos.`,
-  },
-  {
-    name: 'Comparación de opiniones',
-    outputType: 'Comparativa',
-    request:
-      'Compara los argumentos, identifica en qué coinciden y redacta una síntesis equilibrada sin decidir quién tiene razón.',
-    sources: `OPINIÓN 1
-El trabajo híbrido mejora la concentración porque permite reservar las tareas individuales para casa. También reduce los desplazamientos, aunque exige reuniones bien planificadas.
-
-OPINIÓN 2
-El trabajo presencial facilita las conversaciones espontáneas y el aprendizaje entre compañeros. Sin embargo, reconoce que algunos empleados necesitan flexibilidad para organizar mejor su tiempo.`,
-  },
-  {
-    name: 'Resumen de resultados de una encuesta',
-    outputType: 'Resumen',
-    request:
-      'Resume los resultados para una audiencia no técnica, destaca los tres datos más importantes y evita exagerar las conclusiones.',
-    sources: `ENCUESTA DE MOVILIDAD
-Respondieron 600 personas. El 48 % utiliza transporte público al menos cuatro días por semana, el 27 % se desplaza principalmente a pie o en bicicleta y el 25 % usa coche.
-
-Entre quienes usan transporte público, el 62 % considera que la frecuencia debería mejorar. La encuesta fue voluntaria y se difundió únicamente por canales digitales, por lo que no representa necesariamente a toda la población.`,
-  },
-];
-
-const STATUS_LABELS = {
-  pending: 'En espera',
-  running: 'Trabajando',
-  reviewing: 'Revisando de nuevo',
-  correcting: 'Corrigiendo',
-  completed: 'Completado',
-  warning: 'Requiere atención',
-  error: 'Error',
+const DEMO = {
+  topic: 'Encontrar un sitio para cenar juntos este viernes',
+  targetDate: 'Viernes, entre las 20:30 y las 23:30',
+  area: 'Madrid centro',
+  details:
+    'Queremos poder hablar tranquilos y llegar en transporte público. La decisión debe quedar cerrada hoy.',
+  participants: [
+    {
+      id: 'henar',
+      name: 'Henar',
+      availability: 'Puedo llegar a partir de las 20:30 y quiero volver antes de medianoche.',
+      budget: 'Preferiblemente hasta 25 € por persona.',
+      preferences: 'Me apetece cenar sentados, en un lugar tranquilo y con opciones vegetarianas.',
+      nonNegotiables: 'Tiene que estar bien conectado por metro.',
+      privateNotes: 'No quiero explicar al grupo por qué necesito controlar el presupuesto.',
+      feedback: '',
+    },
+    {
+      id: 'lucia',
+      name: 'Lucía',
+      availability: 'Salgo de trabajar a las 20:00 cerca de Atocha.',
+      budget: 'Puedo gastar hasta 35 €.',
+      preferences: 'Prefiero un sitio informal y no me importa caminar unos 15 minutos.',
+      nonNegotiables: 'No puedo quedar antes de las 20:30.',
+      privateNotes: 'Estoy cansada esta semana; prefiero evitar planes que terminen muy tarde.',
+      feedback: '',
+    },
+    {
+      id: 'marcos',
+      name: 'Marcos',
+      availability: 'Estoy libre desde las 19:30.',
+      budget: 'Máximo 30 €.',
+      preferences: 'Prefiero comida española, italiana o mexicana.',
+      nonNegotiables: 'No quiero comida asiática.',
+      privateNotes: 'Puedo ceder con la zona si el transporte de vuelta es sencillo.',
+      feedback: '',
+    },
+    {
+      id: 'pablo',
+      name: 'Pablo',
+      availability: 'Estoy disponible toda la tarde y noche.',
+      budget: 'Sin límite estricto, pero no quiero encarecer el plan del grupo.',
+      preferences: 'Me da igual el tipo de comida; valoro que se pueda reservar.',
+      nonNegotiables: 'No quiero tener que conducir.',
+      privateNotes: 'Estoy dispuesto a adaptarme si el resto llega a un acuerdo.',
+      feedback: '',
+    },
+  ],
 };
 
-function Icon({ name, size = 18 }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.8,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': true,
+function createParticipant(index) {
+  const suffix = Date.now().toString(36);
+  return {
+    id: `person_${index + 1}_${suffix}`,
+    name: index === 0 ? 'Tú' : `Persona ${index + 1}`,
+    availability: '',
+    budget: '',
+    preferences: '',
+    nonNegotiables: '',
+    privateNotes: '',
+    feedback: '',
   };
-
-  const paths = {
-    search: (
-      <>
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-4-4" />
-      </>
-    ),
-    chart: (
-      <>
-        <path d="M4 19V9" />
-        <path d="M10 19V5" />
-        <path d="M16 19v-7" />
-        <path d="M22 19H2" />
-      </>
-    ),
-    shield: (
-      <>
-        <path d="M12 3 4.5 6v5.5c0 4.4 3.1 7.7 7.5 9.5 4.4-1.8 7.5-5.1 7.5-9.5V6L12 3Z" />
-        <path d="m8.7 12 2.1 2.1 4.6-4.6" />
-      </>
-    ),
-    pen: (
-      <>
-        <path d="m14.7 5.3 4 4" />
-        <path d="M5 19l2.2-5.7L16.5 4a1.4 1.4 0 0 1 2 0L20 5.5a1.4 1.4 0 0 1 0 2l-9.3 9.3L5 19Z" />
-      </>
-    ),
-    check: (
-      <>
-        <path d="M9 11.5 11 13.5 15.5 9" />
-        <circle cx="12" cy="12" r="8.5" />
-      </>
-    ),
-    layers: (
-      <>
-        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-        <path d="m3 12 9 5 9-5" />
-        <path d="m3 16 9 5 9-5" />
-      </>
-    ),
-    manager: (
-      <>
-        <path d="M12 3v5" />
-        <path d="M5.5 10.5 9 12" />
-        <path d="m18.5 10.5-3.5 1.5" />
-        <circle cx="12" cy="12" r="3" />
-        <circle cx="12" cy="3" r="1.5" />
-        <circle cx="4" cy="10" r="1.5" />
-        <circle cx="20" cy="10" r="1.5" />
-        <path d="M12 15v4" />
-        <circle cx="12" cy="20.5" r="1.5" />
-      </>
-    ),
-    arrow: <path d="m5 12 5 5L20 7" />,
-    spark: (
-      <>
-        <path d="m12 3 1.3 4.2L17.5 8.5l-4.2 1.3L12 14l-1.3-4.2-4.2-1.3 4.2-1.3L12 3Z" />
-        <path d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z" />
-      </>
-    ),
-    source: (
-      <>
-        <path d="M6 3h9l4 4v14H6V3Z" />
-        <path d="M14 3v5h5" />
-        <path d="M9 13h7" />
-        <path d="M9 17h5" />
-      </>
-    ),
-    route: (
-      <>
-        <circle cx="5" cy="6" r="2" />
-        <circle cx="19" cy="18" r="2" />
-        <path d="M7 6h4a4 4 0 0 1 4 4v4a4 4 0 0 0 4 4" />
-        <path d="m11 14-3 3 3 3" />
-      </>
-    ),
-    copy: (
-      <>
-        <rect x="8" y="8" width="11" height="11" rx="2" />
-        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-      </>
-    ),
-    close: (
-      <>
-        <path d="m6 6 12 12" />
-        <path d="M18 6 6 18" />
-      </>
-    ),
-    chevron: <path d="m9 18 6-6-6-6" />,
-    github: (
-      <>
-        <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.8-1.6 6.8-7.4A5.8 5.8 0 0 0 19.3 3 5.4 5.4 0 0 0 19.1 0S17.9-.4 15 1.5a13.4 13.4 0 0 0-7 0C5.1-.4 3.9 0 3.9 0a5.4 5.4 0 0 0-.2 3A5.8 5.8 0 0 0 2.2 7.1c0 5.8 3.5 7 6.8 7.4A4.8 4.8 0 0 0 8 18v4" />
-        <path d="M8 19c-3 .9-3-1.5-4.2-2" />
-      </>
-    ),
-    external: (
-      <>
-        <path d="M15 4h5v5" />
-        <path d="m10 14 10-10" />
-        <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
-      </>
-    ),
-  };
-
-  return <svg {...common}>{paths[name] || paths.spark}</svg>;
 }
 
-function apiRequest(url, options = {}) {
+function apiRequest(url, options) {
   return fetch(url, {
-    ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers || {}),
+      ...(options?.headers || {}),
     },
+    ...options,
   }).then(async (response) => {
-    const data = await response.json().catch(() => ({}));
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || 'La solicitud no pudo completarse.');
+      throw new Error(payload.error || 'La solicitud no se pudo completar.');
     }
-    return data;
+    return payload;
   });
 }
 
-function getStepOutput(stepState) {
-  if (!stepState) return '';
-  if (stepState.review?.approved && stepState.review.finalText) {
-    return stepState.review.finalText;
-  }
-  return stepState.output || stepState.review?.summary || '';
+function Icon({ name, size = 18 }) {
+  const paths = {
+    arrow: 'M5 12h14M13 6l6 6-6 6',
+    check: 'm5 12 4 4L19 6',
+    copy: 'M8 8h11v11H8zM5 16H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1',
+    github:
+      'M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.8a9.6 9.6 0 0 1 2.5.34c1.92-1.3 2.76-1.02 2.76-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.79c0 .27.18.58.69.48A10 10 0 0 0 12 2Z',
+    lock: 'M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5z',
+    plus: 'M12 5v14M5 12h14',
+    refresh: 'M20 7v5h-5M4 17v-5h5M6.1 9a7 7 0 0 1 11.5-2L20 12M4 12l2.4 5a7 7 0 0 0 11.5-2',
+    spark: 'm12 3 1.4 4.1L17.5 9l-4.1 1.4L12 15l-1.4-4.6L6.5 9l4.1-1.9L12 3Zm6 11 .8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8L18 14Z',
+    trash: 'M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14',
+    users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+    x: 'M18 6 6 18M6 6l12 12',
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="icon"
+      fill="none"
+      height={size}
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      <path
+        d={paths[name]}
+        fill={name === 'github' ? 'currentColor' : 'none'}
+        stroke={name === 'github' ? 'none' : 'currentColor'}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
 }
 
-function StatusMark({ status = 'pending' }) {
+function Avatar({ name, index, small = false }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase() || '?';
+
   return (
-    <span className={`status-mark status-${status}`} aria-hidden="true">
-      {status === 'completed' ? (
-        <Icon name="arrow" size={13} />
-      ) : status === 'error' || status === 'warning' ? (
-        '!'
-      ) : (
-        <span />
-      )}
+    <span
+      className={`avatar ${small ? 'avatar-small' : ''}`}
+      style={{ '--avatar-color': PERSON_COLORS[index % PERSON_COLORS.length] }}
+    >
+      {initials}
     </span>
   );
 }
 
-function AgentAvatar({ agent, manager = false }) {
-  const meta = manager ? { icon: 'manager', code: 'GER' } : AGENTS[agent];
+function Field({ label, hint, children }) {
   return (
-    <span className={`agent-avatar ${manager ? 'manager-avatar' : ''}`}>
-      <Icon name={meta?.icon || 'spark'} size={19} />
-      <span className="sr-only">{meta?.code}</span>
+    <label className="field">
+      <span className="field-label">
+        {label}
+        {hint && <span>{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function ConnectionBadge({ connection }) {
+  const labels = {
+    checking: 'Comprobando Gemini',
+    ready: 'Gemini conectado',
+    missing: 'Falta configurar Gemini',
+    error: 'Sin conexión',
+  };
+
+  return (
+    <span className={`connection-badge connection-${connection}`}>
+      <span className="connection-dot" />
+      {labels[connection]}
     </span>
   );
 }
 
-function HowItWorks() {
-  const steps = [
-    {
-      number: '01',
-      title: 'Elige una misión',
-      text: 'Decide si quieres resumir, comparar, verificar o redactar.',
-    },
-    {
-      number: '02',
-      title: 'Añade tu material',
-      text: 'Pega los textos y explica cómo debe ser el resultado.',
-    },
-    {
-      number: '03',
-      title: 'Nexo crea el equipo',
-      text: 'El gerente selecciona agentes, orden y revisiones.',
-    },
-    {
-      number: '04',
-      title: 'Recibe la entrega',
-      text: 'Observa el proceso y copia el resultado aprobado.',
-    },
-  ];
-
-  return (
-    <section className="guide-section" id="como-funciona">
-      <div className="guide-heading">
-        <div>
-          <span className="section-kicker">Cómo funciona</span>
-          <h2>No necesitas saber de agentes.</h2>
-        </div>
-        <p>
-          Tú defines el objetivo y aportas el material. Nexo se encarga de
-          organizar el trabajo.
-        </p>
-      </div>
-      <div className="guide-steps">
-        {steps.map((step) => (
-          <article className="guide-step" key={step.number}>
-            <span>{step.number}</span>
-            <h3>{step.title}</h3>
-            <p>{step.text}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TeamPanel({ selectedAgents }) {
-  return (
-    <aside className="team-panel panel">
-      <div className="panel-heading">
-        <div>
-          <span className="section-kicker">Catálogo cerrado</span>
-          <h2>Equipo disponible</h2>
-        </div>
-        <span className="team-count">{selectedAgents.size || 0}/6 activos</span>
-      </div>
-
-      {selectedAgents.size === 0 && (
-        <div className="manager-preview">
-          <AgentAvatar manager />
-          <div>
-            <strong>El gerente formará el equipo</strong>
-            <p>
-              Cuando inicies la misión, aquí se iluminarán únicamente los
-              especialistas que haya elegido.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="agent-grid">
-        {Object.entries(AGENTS).map(([id, agent]) => {
-          const selected = selectedAgents.has(id);
-          return (
-            <article
-              className={`agent-card ${selected ? 'is-selected' : ''}`}
-              key={id}
-            >
-              <AgentAvatar agent={id} />
-              <div>
-                <div className="agent-name-row">
-                  <h3>{agent.name}</h3>
-                  {selected && <span className="selected-dot">En el plan</span>}
-                </div>
-                <p>{agent.description}</p>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      <div className="team-note">
-        <Icon name="spark" size={16} />
-        <p>
-          El gerente selecciona únicamente los roles necesarios para cada
-          petición.
-        </p>
-      </div>
-    </aside>
-  );
-}
-
-function BriefForm({
-  request,
-  setRequest,
-  sources,
-  setSources,
-  outputType,
-  setOutputType,
-  onLoadDemo,
-  onSubmit,
-  busy,
-  apiStatus,
-}) {
-  const activeMission =
-    MISSION_TYPES.find((mission) => mission.value === outputType) ||
-    MISSION_TYPES[0];
-
-  return (
-    <form className="brief-panel panel" id="crear-mision" onSubmit={onSubmit}>
-      <div className="panel-heading">
-        <div>
-          <span className="section-kicker">Empieza aquí</span>
-          <h2>Prepara tu misión</h2>
-        </div>
-        <span className="step-number">01</span>
-      </div>
-
-      {apiStatus && !apiStatus.configured && (
-        <div className="config-alert" role="status">
-          <span className="config-alert-icon">!</span>
-          <div>
-            <strong>Gemini aún no está conectado</strong>
-            <p>
-              Añade <code>GEMINI_API_KEY</code> a <code>.env.local</code> y
-              reinicia <code>vercel dev</code>.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <fieldset className="mission-fieldset">
-        <legend className="guided-label">
-          <span>1</span>
-          Elige qué quieres hacer
-        </legend>
-        <div className="mission-grid">
-          {MISSION_TYPES.map((mission) => {
-            const selected = outputType === mission.value;
-            return (
-              <button
-                type="button"
-                className={`mission-card ${selected ? 'is-selected' : ''}`}
-                aria-pressed={selected}
-                key={mission.value}
-                onClick={() => setOutputType(mission.value)}
-                disabled={busy}
-              >
-                <span className="mission-icon">
-                  <Icon name={mission.icon} size={18} />
-                </span>
-                <span>
-                  <strong>{mission.label}</strong>
-                  <small>{mission.description}</small>
-                </span>
-                <span className="mission-check">
-                  {selected && <Icon name="arrow" size={12} />}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <div className="guided-label guided-label-row">
-        <label htmlFor="request">
-          <span>2</span>
-          Explica el resultado que esperas
-        </label>
-        <button
-          type="button"
-          className="load-demo-button"
-          onClick={onLoadDemo}
-          disabled={busy}
-        >
-          <Icon name="spark" size={14} />
-          Cargar ejemplo completo
-        </button>
-      </div>
-      <div className="textarea-wrap request-wrap">
-        <textarea
-          id="request"
-          value={request}
-          onChange={(event) => setRequest(event.target.value)}
-          placeholder={activeMission.placeholder}
-          maxLength={6000}
-          disabled={busy}
-        />
-        <span className="char-count">{request.length}/6000</span>
-      </div>
-
-      <div className="field-help">
-        <Icon name="manager" size={15} />
-        <span>
-          Describe el objetivo con tus palabras. No necesitas elegir agentes ni
-          indicarles el orden.
-        </span>
-      </div>
-
-      <label className="guided-label guided-label-sources" htmlFor="sources">
-        <span>3</span>
-        Añade los textos que debe utilizar
-        <small>Recomendado</small>
-      </label>
-      <div className="textarea-wrap sources-wrap">
-        <textarea
-          id="sources"
-          value={sources}
-          onChange={(event) => setSources(event.target.value)}
-          placeholder="Pega aquí artículos, notas o fragmentos. Puedes separar cada fuente con un título..."
-          maxLength={18000}
-          disabled={busy}
-        />
-        <Icon name="source" size={17} />
-        <span className="char-count">{sources.length}/18000</span>
-      </div>
-      <p className="sources-note">
-        Para obtener un resultado verificable, pega el contenido de las fuentes.
-        Esta primera versión todavía no abre enlaces por sí sola.
-      </p>
-
-      <div className="submit-row">
-        <div className="privacy-note">
-          <span />
-          La clave permanece en el servidor
-        </div>
-        <button
-          className="primary-button"
-          type="submit"
-          disabled={busy || request.trim().length < 10}
-        >
-          {busy ? (
-            <>
-              <span className="button-spinner" />
-              {busy === 'planning' ? 'Diseñando el plan' : 'Equipo trabajando'}
-            </>
-          ) : (
-            <>
-              {activeMission.actionLabel}
-              <Icon name="chevron" size={17} />
-            </>
-          )}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function WorkflowStep({
-  step,
+function ParticipantEditor({
+  participant,
   index,
-  state,
-  active,
-  onSelect,
-  stepById,
+  canRemove,
+  onChange,
+  onRemove,
 }) {
-  const meta = AGENTS[step.agent] || AGENTS.writer;
-  const status = state?.status || 'pending';
-  const rejectTarget = step.onRejectStep
-    ? stepById.get(step.onRejectStep)
-    : null;
+  const update = (field, value) => onChange(participant.id, field, value);
 
   return (
-    <div className="workflow-item">
-      <button
-        type="button"
-        className={`workflow-card ${active ? 'is-active' : ''}`}
-        onClick={onSelect}
-      >
-        <span className="workflow-order">
-          {String(index + 1).padStart(2, '0')}
-        </span>
-        <AgentAvatar agent={step.agent} />
-        <span className="workflow-main">
-          <span className="workflow-agent">{meta.name}</span>
-          <strong>{step.title}</strong>
-          <span className="workflow-purpose">{step.purpose}</span>
-          <span className="workflow-tags">
-            {step.dependsOn.length > 0 ? (
-              <span>
-                Depende de {step.dependsOn.map((id) => stepById.get(id)?.title || id).join(', ')}
-              </span>
-            ) : (
-              <span>Sin dependencias</span>
-            )}
-            {rejectTarget && (
-              <span className="return-tag">
-                <Icon name="route" size={13} />
-                Si falla, vuelve a {rejectTarget.title}
-              </span>
-            )}
-          </span>
-        </span>
-        <span className="workflow-status">
-          <StatusMark status={status} />
-          <span>{STATUS_LABELS[status]}</span>
-        </span>
-      </button>
-      {index < stepById.size - 1 && <span className="workflow-line" />}
+    <div className="participant-editor">
+      <div className="participant-editor-head">
+        <Avatar name={participant.name} index={index} />
+        <div>
+          <span className="eyebrow">Agente personal</span>
+          <h3>Perfil privado</h3>
+        </div>
+        {canRemove && (
+          <button
+            aria-label={`Eliminar a ${participant.name}`}
+            className="icon-button danger-button"
+            onClick={() => onRemove(participant.id)}
+            type="button"
+          >
+            <Icon name="trash" />
+          </button>
+        )}
+      </div>
+
+      <div className="privacy-note">
+        <Icon name="lock" size={16} />
+        El mediador solo recibirá la posición pública preparada por este agente.
+      </div>
+
+      <div className="form-grid">
+        <Field label="Nombre">
+          <input
+            maxLength="60"
+            onChange={(event) => update('name', event.target.value)}
+            placeholder="Nombre"
+            value={participant.name}
+          />
+        </Field>
+        <Field label="Disponibilidad">
+          <input
+            maxLength="1200"
+            onChange={(event) => update('availability', event.target.value)}
+            placeholder="Ej. El viernes a partir de las 20:30"
+            value={participant.availability}
+          />
+        </Field>
+        <Field label="Presupuesto">
+          <input
+            maxLength="500"
+            onChange={(event) => update('budget', event.target.value)}
+            placeholder="Ej. Preferiblemente menos de 25 €"
+            value={participant.budget}
+          />
+        </Field>
+        <Field label="Preferencias">
+          <textarea
+            maxLength="2200"
+            onChange={(event) => update('preferences', event.target.value)}
+            placeholder="Qué le apetece, qué valora y en qué puede adaptarse"
+            rows="3"
+            value={participant.preferences}
+          />
+        </Field>
+        <Field label="No negociable">
+          <textarea
+            maxLength="1400"
+            onChange={(event) => update('nonNegotiables', event.target.value)}
+            placeholder="Condiciones que el acuerdo debe respetar"
+            rows="2"
+            value={participant.nonNegotiables}
+          />
+        </Field>
+        <Field label="Solo para su agente" hint="No se comparte literalmente">
+          <textarea
+            className="private-input"
+            maxLength="1600"
+            onChange={(event) => update('privateNotes', event.target.value)}
+            placeholder="Motivos o contexto que esta persona prefiere mantener privado"
+            rows="3"
+            value={participant.privateNotes}
+          />
+        </Field>
+      </div>
     </div>
   );
 }
 
-function StepInspector({ step, state, onClose }) {
-  if (!step) return null;
-  const meta = AGENTS[step.agent] || AGENTS.writer;
-  const status = state?.status || 'pending';
+function EmptyNegotiation({ participants }) {
+  return (
+    <div className="empty-negotiation">
+      <div className="network-visual" aria-hidden="true">
+        <div className="network-ring" />
+        {participants.slice(0, 5).map((participant, index) => (
+          <div
+            className={`network-person network-person-${index + 1}`}
+            key={participant.id}
+          >
+            <Avatar name={participant.name} index={index} small />
+          </div>
+        ))}
+        <div className="mediator-node">
+          <Icon name="spark" size={24} />
+        </div>
+      </div>
+      <span className="eyebrow">Sala de negociación</span>
+      <h2>Los agentes aún no han hablado</h2>
+      <p>
+        Completa el pacto y los perfiles. Cada Gemini defenderá a una persona y
+        el mediador buscará un punto de encuentro.
+      </p>
+      <div className="empty-steps">
+        <span><b>1</b> Posiciones privadas</span>
+        <span><b>2</b> Mediación neutral</span>
+        <span><b>3</b> Aprobación humana</span>
+      </div>
+    </div>
+  );
+}
+
+function NegotiatingState({ participants, round }) {
+  return (
+    <div className="negotiating-state">
+      <div className="negotiating-orbit">
+        <span className="orbit-center"><Icon name="spark" size={24} /></span>
+        <span className="orbit-dot orbit-dot-one" />
+        <span className="orbit-dot orbit-dot-two" />
+        <span className="orbit-dot orbit-dot-three" />
+      </div>
+      <span className="eyebrow">Ronda {round}</span>
+      <h2>Los agentes están negociando</h2>
+      <p>Preparan posiciones públicas sin revelar las notas privadas.</p>
+      <div className="agent-progress-list">
+        {participants.map((participant, index) => (
+          <div className="agent-progress" key={participant.id}>
+            <Avatar name={participant.name} index={index} small />
+            <span>Agente de {participant.name}</span>
+            <i />
+          </div>
+        ))}
+        <div className="agent-progress mediator-progress">
+          <span className="mini-mediator"><Icon name="spark" size={14} /></span>
+          <span>Mediador</span>
+          <i />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PositionCard({ position, participant, index }) {
+  const statusLabels = {
+    open: 'Abierto',
+    cautious: 'Con reservas',
+    blocked: 'Bloqueado',
+  };
 
   return (
-    <aside className="inspector panel">
-      <div className="inspector-header">
-        <div className="inspector-agent">
-          <AgentAvatar agent={step.agent} />
+    <article className={`position-card position-${position.status}`}>
+      <div className="position-head">
+        <Avatar name={participant.name} index={index} small />
+        <div>
+          <h4>Agente de {participant.name}</h4>
+          <span>{statusLabels[position.status]}</span>
+        </div>
+        <strong>{position.compatibilityScore}%</strong>
+      </div>
+      <p>“{position.publicMessage}”</p>
+      {position.concessions?.length > 0 && (
+        <div className="position-foot">
+          Puede ceder: {position.concessions.slice(0, 2).join(' · ')}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ProposalCard({
+  result,
+  participants,
+  votes,
+  feedback,
+  onVote,
+  onFeedback,
+  onNextRound,
+  onReset,
+  onCopy,
+}) {
+  const { mediation, positions, round, meta } = result;
+  const proposal = mediation.proposal;
+  const allVoted = participants.every((participant) => votes[participant.id]);
+  const allAccepted =
+    allVoted &&
+    participants.every((participant) => votes[participant.id] === 'accept');
+  const hasRejection = Object.values(votes).some((vote) => vote === 'reject');
+
+  return (
+    <div className="result-stack">
+      <div className="round-summary">
+        <div>
+          <span className="eyebrow">Conversación pública</span>
+          <h2>Ronda {round} de {MAX_ROUNDS}</h2>
+        </div>
+        <span className="round-meta">
+          {meta?.calls || positions.length + 1} llamadas · {meta?.model || 'Gemini'}
+        </span>
+      </div>
+
+      <div className="positions-grid">
+        {positions.map((position) => {
+          const index = participants.findIndex(
+            (participant) => participant.id === position.participantId
+          );
+          const participant = participants[index] || {
+            name: position.participantName,
+          };
+          return (
+            <PositionCard
+              index={Math.max(index, 0)}
+              key={position.participantId}
+              participant={participant}
+              position={position}
+            />
+          );
+        })}
+      </div>
+
+      <article className="proposal-card">
+        <div className="proposal-topline">
+          <span className="mediator-mark"><Icon name="spark" size={18} /></span>
+          <span>Mediador neutral</span>
+          <span className="consensus-pill">
+            {mediation.consensusScore}% de encaje
+          </span>
+        </div>
+        <h2>{proposal.headline}</h2>
+        <p className="proposal-description">{proposal.description}</p>
+
+        <div className="proposal-facts">
           <div>
-            <span>{meta.name}</span>
-            <strong>{step.title}</strong>
+            <span>Cuándo</span>
+            <strong>{proposal.when}</strong>
+          </div>
+          <div>
+            <span>Dónde</span>
+            <strong>{proposal.where}</strong>
+          </div>
+          <div>
+            <span>Coste</span>
+            <strong>{proposal.estimatedCost}</strong>
           </div>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onClose}
-          aria-label="Cerrar detalles"
-        >
-          <Icon name="close" size={18} />
-        </button>
-      </div>
 
-      <div className="inspector-status">
-        <StatusMark status={status} />
-        <span>{STATUS_LABELS[status]}</span>
-        {state?.attempts > 0 && (
-          <span className="attempt-count">
-            {state.attempts} {state.attempts === 1 ? 'intento' : 'intentos'}
-          </span>
-        )}
-      </div>
-
-      <div className="inspector-section">
-        <span className="inspector-label">Tarea asignada</span>
-        <p>{step.task}</p>
-      </div>
-
-      <div className="inspector-section">
-        <span className="inspector-label">Criterios de aceptación</span>
-        <ul>
-          {step.acceptanceCriteria.map((criterion) => (
-            <li key={criterion}>{criterion}</li>
-          ))}
-        </ul>
-      </div>
-
-      {state?.review && (
-        <div className="review-box">
-          <div className="review-score">
-            <span>Revisión</span>
-            <strong>{state.review.score}/100</strong>
+        {proposal.steps?.length > 0 && (
+          <div className="proposal-section">
+            <h3>El plan</h3>
+            <ol>
+              {proposal.steps.map((step, index) => (
+                <li key={`${step}-${index}`}>{step}</li>
+              ))}
+            </ol>
           </div>
-          <p>{state.review.summary}</p>
-          {state.review.issues?.length > 0 && (
-            <ul>
-              {state.review.issues.map((issue) => (
-                <li key={issue}>{issue}</li>
+        )}
+
+        <div className="proposal-columns">
+          <div>
+            <h3>Por qué puede funcionar</h3>
+            <ul className="check-list">
+              {proposal.whyItWorks?.map((item, index) => (
+                <li key={`${item}-${index}`}><Icon name="check" size={15} />{item}</li>
               ))}
             </ul>
-          )}
-        </div>
-      )}
-
-      {getStepOutput(state) && (
-        <div className="inspector-section inspector-output">
-          <span className="inspector-label">Resultado de la fase</span>
-          <pre>{getStepOutput(state)}</pre>
-        </div>
-      )}
-    </aside>
-  );
-}
-
-function ProcessPanel({
-  plan,
-  stepStates,
-  selectedStepId,
-  setSelectedStepId,
-  runStatus,
-}) {
-  const stepById = useMemo(
-    () => new Map(plan.steps.map((step) => [step.id, step])),
-    [plan]
-  );
-  const selectedStep = stepById.get(selectedStepId);
-  const returnRoutes = plan.steps.filter((step) => step.onRejectStep).length;
-
-  return (
-    <section className="process-section" aria-live="polite">
-      <div className="process-heading">
-        <div>
-          <span className="section-kicker">Plan del gerente</span>
-          <h2>{plan.title}</h2>
-          <p>{plan.summary}</p>
-        </div>
-        <div className={`run-badge run-${runStatus}`}>
-          <span />
-          {runStatus === 'completed'
-            ? 'Proceso terminado'
-            : runStatus === 'error'
-              ? 'Proceso detenido'
-              : 'Proceso en ejecución'}
-        </div>
-      </div>
-
-      <div className="process-stats">
-        <div>
-          <strong>{plan.steps.length}</strong>
-          <span>fases</span>
-        </div>
-        <div>
-          <strong>{new Set(plan.steps.map((step) => step.agent)).size}</strong>
-          <span>agentes elegidos</span>
-        </div>
-        <div>
-          <strong>{returnRoutes}</strong>
-          <span>rutas de corrección</span>
-        </div>
-      </div>
-
-      <div className={`process-layout ${selectedStep ? 'has-inspector' : ''}`}>
-        <div className="workflow panel">
-          <div className="manager-card">
-            <span className="workflow-order">00</span>
-            <AgentAvatar manager />
-            <span className="workflow-main">
-              <span className="workflow-agent">Gerente</span>
-              <strong>Diseñar el proceso</strong>
-              <span className="workflow-purpose">
-                Ha seleccionado el equipo y las rutas de revisión.
-              </span>
-            </span>
-            <span className="workflow-status">
-              <StatusMark status="completed" />
-              <span>Completado</span>
-            </span>
           </div>
-
-          <div className="manager-connector">
-            <span />
+          <div>
+            <h3>Compromisos</h3>
+            <ul>
+              {proposal.compromises?.length ? (
+                proposal.compromises.map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))
+              ) : (
+                <li>No se han detectado compromisos importantes.</li>
+              )}
+            </ul>
           </div>
+        </div>
 
-          {plan.steps.map((step, index) => (
-            <WorkflowStep
-              key={step.id}
-              step={step}
-              index={index}
-              state={stepStates[step.id]}
-              active={selectedStepId === step.id}
-              onSelect={() => setSelectedStepId(step.id)}
-              stepById={stepById}
-            />
+        <div className="mediator-message">
+          <Icon name="spark" size={16} />
+          {mediation.mediatorMessage}
+        </div>
+      </article>
+
+      <section className={`vote-panel ${allAccepted ? 'vote-panel-success' : ''}`}>
+        <div className="vote-heading">
+          <div>
+            <span className="eyebrow">
+              {allAccepted ? 'Pacto cerrado' : 'Decisión humana'}
+            </span>
+            <h2>
+              {allAccepted
+                ? 'Todos han aceptado'
+                : '¿Acepta cada persona esta propuesta?'}
+            </h2>
+          </div>
+          {allAccepted && <span className="success-seal"><Icon name="check" size={22} /></span>}
+        </div>
+
+        <div className="vote-list">
+          {participants.map((participant, index) => (
+            <div className="vote-row" key={participant.id}>
+              <div className="vote-person">
+                <Avatar name={participant.name} index={index} small />
+                <strong>{participant.name}</strong>
+              </div>
+              {!allAccepted && (
+                <div className="vote-actions">
+                  <button
+                    className={votes[participant.id] === 'accept' ? 'selected accept' : ''}
+                    onClick={() => onVote(participant.id, 'accept')}
+                    type="button"
+                  >
+                    Acepta
+                  </button>
+                  <button
+                    className={votes[participant.id] === 'reject' ? 'selected reject' : ''}
+                    onClick={() => onVote(participant.id, 'reject')}
+                    type="button"
+                  >
+                    Quiere cambios
+                  </button>
+                </div>
+              )}
+              {allAccepted && <span className="accepted-label"><Icon name="check" size={14} /> Aceptado</span>}
+              {votes[participant.id] === 'reject' && !allAccepted && (
+                <input
+                  aria-label={`Cambios solicitados por ${participant.name}`}
+                  onChange={(event) => onFeedback(participant.id, event.target.value)}
+                  placeholder="¿Qué debería cambiar su agente?"
+                  value={feedback[participant.id] || ''}
+                />
+              )}
+            </div>
           ))}
         </div>
 
-        <StepInspector
-          step={selectedStep}
-          state={selectedStep ? stepStates[selectedStep.id] : null}
-          onClose={() => setSelectedStepId('')}
-        />
-      </div>
-    </section>
-  );
-}
-
-function ResultPanel({ result }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copyResult() {
-    try {
-      await navigator.clipboard.writeText(result);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  return (
-    <section className="result-panel panel">
-      <div className="result-header">
-        <div>
-          <span className="section-kicker">Entrega aprobada</span>
-          <h2>Resultado final</h2>
+        <div className="vote-footer">
+          {allAccepted ? (
+            <>
+              <button className="secondary-button" onClick={onCopy} type="button">
+                <Icon name="copy" size={16} /> Copiar acuerdo
+              </button>
+              <button className="primary-button" onClick={onReset} type="button">
+                Crear otro pacto <Icon name="arrow" size={17} />
+              </button>
+            </>
+          ) : (
+            <>
+              <span>
+                {allVoted
+                  ? hasRejection
+                    ? 'Los agentes pueden intentar una nueva propuesta.'
+                    : 'La propuesta está lista para cerrarse.'
+                  : 'Faltan decisiones por registrar.'}
+              </span>
+              {allVoted && hasRejection && round < MAX_ROUNDS && (
+                <button className="primary-button" onClick={onNextRound} type="button">
+                  Negociar otra ronda <Icon name="refresh" size={17} />
+                </button>
+              )}
+              {allVoted && hasRejection && round >= MAX_ROUNDS && (
+                <button className="secondary-button" onClick={onReset} type="button">
+                  Replantear el pacto
+                </button>
+              )}
+            </>
+          )}
         </div>
-        <button type="button" className="copy-button" onClick={copyResult}>
-          <Icon name="copy" size={16} />
-          {copied ? 'Copiado' : 'Copiar'}
-        </button>
-      </div>
-      <pre className="result-content">{result}</pre>
-    </section>
+      </section>
+    </div>
   );
 }
 
 function App() {
-  const [request, setRequest] = useState('');
-  const [sources, setSources] = useState('');
-  const [outputType, setOutputType] = useState('Resumen');
-  const [apiStatus, setApiStatus] = useState(null);
+  const [topic, setTopic] = useState('');
+  const [targetDate, setTargetDate] = useState('');
+  const [area, setArea] = useState('');
+  const [details, setDetails] = useState('');
+  const [participants, setParticipants] = useState([
+    createParticipant(0),
+    createParticipant(1),
+  ]);
+  const [activeParticipantId, setActiveParticipantId] = useState(
+    participants[0].id
+  );
+  const [connection, setConnection] = useState('checking');
   const [runStatus, setRunStatus] = useState('idle');
-  const [plan, setPlan] = useState(null);
-  const [stepStates, setStepStates] = useState({});
-  const [selectedStepId, setSelectedStepId] = useState('');
-  const [result, setResult] = useState('');
+  const [round, setRound] = useState(1);
+  const [result, setResult] = useState(null);
+  const [votes, setVotes] = useState({});
+  const [feedback, setFeedback] = useState({});
   const [error, setError] = useState('');
-  const lastDemoIndex = useRef(-1);
+  const [copyLabel, setCopyLabel] = useState('');
 
   useEffect(() => {
-    apiRequest('/api/health')
-      .then(setApiStatus)
-      .catch(() =>
-        setApiStatus({ configured: false, model: 'gemini-3.5-flash' })
-      );
+    fetch('/api/health')
+      .then((response) => response.json())
+      .then((payload) => setConnection(payload.configured ? 'ready' : 'missing'))
+      .catch(() => setConnection('error'));
   }, []);
 
-  const selectedAgents = useMemo(
-    () => new Set(plan?.steps.map((step) => step.agent) || []),
-    [plan]
+  const activeIndex = Math.max(
+    participants.findIndex(
+      (participant) => participant.id === activeParticipantId
+    ),
+    0
+  );
+  const activeParticipant = participants[activeIndex];
+
+  const completedProfileCount = useMemo(
+    () =>
+      participants.filter(
+        (participant) =>
+          participant.name.trim() &&
+          (participant.availability.trim() ||
+            participant.preferences.trim() ||
+            participant.nonNegotiables.trim())
+      ).length,
+    [participants]
   );
 
-  function handleLoadDemo() {
-    let nextIndex;
-
-    do {
-      nextIndex = Math.floor(Math.random() * DEMO_MISSIONS.length);
-    } while (
-      DEMO_MISSIONS.length > 1 &&
-      nextIndex === lastDemoIndex.current
+  function updateParticipant(id, field, value) {
+    setParticipants((current) =>
+      current.map((participant) =>
+        participant.id === id ? { ...participant, [field]: value } : participant
+      )
     );
-
-    lastDemoIndex.current = nextIndex;
-    const demo = DEMO_MISSIONS[nextIndex];
-
-    setOutputType(demo.outputType);
-    setRequest(demo.request);
-    setSources(demo.sources);
-    setPlan(null);
-    setStepStates({});
-    setSelectedStepId('');
-    setResult('');
-    setError('');
-    setRunStatus('idle');
   }
 
-  async function runAgent(step, context, revisionFeedback = '') {
-    return apiRequest('/api/execute', {
-      method: 'POST',
-      body: JSON.stringify({
-        agent: step.agent,
-        task: step.task,
-        request,
-        sources,
-        acceptanceCriteria: step.acceptanceCriteria,
-        context,
-        revisionFeedback,
-      }),
-    });
+  function addParticipant() {
+    if (participants.length >= MAX_PARTICIPANTS) return;
+    const participant = createParticipant(participants.length);
+    setParticipants((current) => [...current, participant]);
+    setActiveParticipantId(participant.id);
   }
 
-  async function executePlan(nextPlan, initialStates) {
-    const execution = { ...initialStates };
-    let activeStepId = '';
-
-    const updateStep = (stepId, patch) => {
-      execution[stepId] = {
-        ...execution[stepId],
-        ...patch,
-      };
-      setStepStates({ ...execution });
-    };
-
-    const makeContext = (step) =>
-      step.dependsOn
-        .map((dependencyId) => {
-          const dependency = nextPlan.steps.find(
-            (candidate) => candidate.id === dependencyId
-          );
-          const dependencyState = execution[dependencyId];
-          if (!dependency || !dependencyState) return null;
-          return {
-            title: dependency.title,
-            agent: AGENTS[dependency.agent]?.name || dependency.agent,
-            output: getStepOutput(dependencyState),
-          };
-        })
-        .filter(Boolean);
-
-    try {
-      for (const step of nextPlan.steps) {
-        activeStepId = step.id;
-        setSelectedStepId(step.id);
-        updateStep(step.id, {
-          status: AGENTS[step.agent] && ['verifier', 'editor'].includes(step.agent)
-            ? 'reviewing'
-            : 'running',
-          attempts: 1,
-          error: '',
-        });
-
-        let stepResponse = await runAgent(step, makeContext(step));
-        updateStep(step.id, {
-          status:
-            stepResponse.review && !stepResponse.review.approved
-              ? 'warning'
-              : 'completed',
-          output: stepResponse.output || '',
-          review: stepResponse.review,
-          meta: stepResponse.meta,
-        });
-
-        const rejectTargetId =
-          stepResponse.review &&
-          !stepResponse.review.approved &&
-          step.onRejectStep;
-        const targetStep = rejectTargetId
-          ? nextPlan.steps.find((candidate) => candidate.id === rejectTargetId)
-          : null;
-        const targetState = targetStep ? execution[targetStep.id] : null;
-
-        if (
-          targetStep &&
-          targetState &&
-          targetState.attempts < targetStep.maxAttempts
-        ) {
-          const feedback = [
-            stepResponse.review.summary,
-            ...(stepResponse.review.requiredChanges || []),
-          ]
-            .filter(Boolean)
-            .join('\n- ');
-
-          updateStep(targetStep.id, {
-            status: 'correcting',
-            attempts: targetState.attempts + 1,
-          });
-          setSelectedStepId(targetStep.id);
-
-          const correctedResponse = await runAgent(
-            targetStep,
-            makeContext(targetStep),
-            feedback
-          );
-          updateStep(targetStep.id, {
-            status: 'completed',
-            output: correctedResponse.output || '',
-            review: correctedResponse.review,
-            meta: correctedResponse.meta,
-          });
-
-          setSelectedStepId(step.id);
-          updateStep(step.id, {
-            status: 'reviewing',
-            attempts: (execution[step.id].attempts || 1) + 1,
-          });
-
-          stepResponse = await runAgent(step, makeContext(step), feedback);
-          updateStep(step.id, {
-            status:
-              stepResponse.review && !stepResponse.review.approved
-                ? 'warning'
-                : 'completed',
-            output: stepResponse.output || '',
-            review: stepResponse.review,
-            meta: stepResponse.meta,
-          });
-        }
-      }
-
-      const finalOutput = [...nextPlan.steps]
-        .reverse()
-        .map((step) => getStepOutput(execution[step.id]))
-        .find(Boolean);
-
-      if (!finalOutput) {
-        throw new Error('El proceso terminó sin producir una entrega final.');
-      }
-
-      setResult(finalOutput);
-      setRunStatus('completed');
-      setSelectedStepId(nextPlan.steps[nextPlan.steps.length - 1].id);
-    } catch (runError) {
-      if (activeStepId) {
-        updateStep(activeStepId, {
-          status: 'error',
-          error: runError.message,
-        });
-      }
-      setRunStatus('error');
-      setError(runError.message);
+  function removeParticipant(id) {
+    if (participants.length <= 2) return;
+    const nextParticipants = participants.filter(
+      (participant) => participant.id !== id
+    );
+    setParticipants(nextParticipants);
+    if (activeParticipantId === id) {
+      setActiveParticipantId(nextParticipants[0].id);
     }
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (request.trim().length < 10 || runStatus === 'planning' || runStatus === 'running') {
+  function loadDemo() {
+    const demoParticipants = DEMO.participants.map((participant) => ({
+      ...participant,
+    }));
+    setTopic(DEMO.topic);
+    setTargetDate(DEMO.targetDate);
+    setArea(DEMO.area);
+    setDetails(DEMO.details);
+    setParticipants(demoParticipants);
+    setActiveParticipantId(demoParticipants[0].id);
+    setResult(null);
+    setVotes({});
+    setFeedback({});
+    setRound(1);
+    setRunStatus('idle');
+    setError('');
+  }
+
+  async function negotiate(nextRound = 1) {
+    if (topic.trim().length < 8) {
+      setError('Describe primero qué necesita acordar el grupo.');
+      return;
+    }
+    if (completedProfileCount < 2) {
+      setError('Completa las preferencias de al menos dos participantes.');
       return;
     }
 
     setError('');
-    setResult('');
-    setPlan(null);
-    setStepStates({});
-    setSelectedStepId('');
-    setRunStatus('planning');
+    setRunStatus('negotiating');
+    setRound(nextRound);
+
+    const participantsWithFeedback = participants.map((participant) => ({
+      ...participant,
+      feedback:
+        votes[participant.id] === 'reject'
+          ? feedback[participant.id] || 'La propuesta anterior necesita cambios.'
+          : votes[participant.id] === 'accept'
+            ? 'La propuesta anterior era aceptable.'
+            : '',
+    }));
 
     try {
-      const response = await apiRequest('/api/plan', {
+      const payload = await apiRequest('/api/negotiate', {
         method: 'POST',
         body: JSON.stringify({
-          request,
-          sources,
-          outputType,
+          topic,
+          targetDate,
+          area,
+          details,
+          participants: participantsWithFeedback,
+          round: nextRound,
+          previousProposal: result?.mediation?.proposal || null,
         }),
       });
-
-      const nextPlan = response.plan;
-      const initialStates = Object.fromEntries(
-        nextPlan.steps.map((step) => [
-          step.id,
-          {
-            status: 'pending',
-            attempts: 0,
-            output: '',
-            review: null,
-            error: '',
-          },
-        ])
-      );
-
-      setPlan(nextPlan);
-      setStepStates(initialStates);
-      setRunStatus('running');
-      await executePlan(nextPlan, initialStates);
-    } catch (submitError) {
+      setResult(payload);
+      setVotes({});
+      setFeedback({});
+      setRunStatus('completed');
+    } catch (requestError) {
       setRunStatus('error');
-      setError(submitError.message);
+      setError(requestError.message);
     }
   }
 
-  const busy =
-    runStatus === 'planning'
-      ? 'planning'
-      : runStatus === 'running'
-        ? 'running'
-        : '';
+  function resetPact() {
+    const initialParticipants = [createParticipant(0), createParticipant(1)];
+    setTopic('');
+    setTargetDate('');
+    setArea('');
+    setDetails('');
+    setParticipants(initialParticipants);
+    setActiveParticipantId(initialParticipants[0].id);
+    setResult(null);
+    setVotes({});
+    setFeedback({});
+    setRound(1);
+    setRunStatus('idle');
+    setError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function copyAgreement() {
+    const proposal = result?.mediation?.proposal;
+    if (!proposal) return;
+    const text = [
+      proposal.headline,
+      `Cuándo: ${proposal.when}`,
+      `Dónde: ${proposal.where}`,
+      `Coste: ${proposal.estimatedCost}`,
+      '',
+      proposal.description,
+      '',
+      ...(proposal.steps || []).map((step, index) => `${index + 1}. ${step}`),
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyLabel('Acuerdo copiado');
+      window.setTimeout(() => setCopyLabel(''), 2200);
+    } catch {
+      setCopyLabel('No se pudo copiar');
+    }
+  }
 
   return (
-    <div className="app">
+    <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Nexo Research, inicio">
+        <a className="brand" href="#inicio" aria-label="Nexo Pact, inicio">
           <span className="brand-mark">
             <span />
             <span />
             <span />
           </span>
-          <span className="brand-copy">
+          <span>
             <strong>Nexo</strong>
-            <small>Research desk</small>
+            <small>Pact</small>
           </span>
         </a>
-
         <div className="topbar-actions">
+          <ConnectionBadge connection={connection} />
           <a
             className="github-link"
             href={GITHUB_URL}
-            target="_blank"
             rel="noreferrer"
+            target="_blank"
           >
-            <Icon name="github" size={17} />
-            Ver código
-            <Icon name="external" size={13} />
+            <Icon name="github" size={18} />
+            <span>GitHub</span>
           </a>
-          <div
-            className="api-state"
-            aria-label={
-              apiStatus?.configured
-                ? `Gemini conectado: ${apiStatus.model}`
-                : 'Gemini sin configurar'
-            }
-          >
-            <span
-              className={`api-dot ${apiStatus?.configured ? 'is-online' : ''}`}
-            />
-            <span>
-              {apiStatus?.configured
-                ? 'Gemini conectado'
-                : 'Gemini sin configurar'}
-            </span>
-          </div>
         </div>
       </header>
 
-      <main className="main" id="top">
+      <main id="inicio">
         <section className="hero">
-          <div className="hero-eyebrow">
-            <span />
-            Inteligencia coordinada
+          <div className="hero-copy">
+            <span className="hero-kicker">
+              <Icon name="spark" size={15} />
+              Acuerdos mediados por agentes
+            </span>
+            <h1>
+              Menos mensajes.
+              <br />
+              <em>Un plan que encaje.</em>
+            </h1>
+            <p>
+              Cada persona tiene un Gemini que protege sus preferencias. Los
+              agentes negocian y un mediador propone el punto de encuentro.
+            </p>
           </div>
-          <h1>
-            Una pregunta.
-            <br />
-            <em>El equipo adecuado.</em>
-          </h1>
-          <p>
-            Convierte tus fuentes en resúmenes, comparativas, verificaciones e
-            informes. <br/> El gerente organiza el equipo y revisa cada fase por ti.
-          </p>
-        </section>
-
-        <HowItWorks />
-
-        <section className="workspace" aria-label="Crear una nueva misión">
-          <BriefForm
-            request={request}
-            setRequest={setRequest}
-            sources={sources}
-            setSources={setSources}
-            outputType={outputType}
-            setOutputType={setOutputType}
-            onLoadDemo={handleLoadDemo}
-            onSubmit={handleSubmit}
-            busy={busy}
-            apiStatus={apiStatus}
-          />
-          <TeamPanel selectedAgents={selectedAgents} />
-        </section>
-
-        {error && (
-          <div className="error-banner" role="alert">
-            <span>!</span>
-            <div>
-              <strong>El proceso se ha detenido</strong>
-              <p>{error}</p>
+          <div className="hero-aside">
+            <div className="hero-quote">
+              <span>El problema</span>
+              <p>“¿Entonces cuándo, dónde y cuánto queremos gastar?”</p>
             </div>
-            <button
-              type="button"
-              className="icon-button"
-              onClick={() => setError('')}
-              aria-label="Cerrar error"
-            >
-              <Icon name="close" size={18} />
-            </button>
+            <div className="hero-arrow"><Icon name="arrow" size={20} /></div>
+            <div className="hero-quote hero-quote-accent">
+              <span>El pacto</span>
+              <p>Una propuesta clara que todos pueden aceptar.</p>
+            </div>
           </div>
-        )}
+        </section>
 
-        {plan && (
-          <ProcessPanel
-            plan={plan}
-            stepStates={stepStates}
-            selectedStepId={selectedStepId}
-            setSelectedStepId={setSelectedStepId}
-            runStatus={runStatus}
-          />
-        )}
+        <section className="workspace">
+          <aside className="setup-panel">
+            <div className="panel-heading">
+              <div>
+                <span className="step-number">01</span>
+                <span className="eyebrow">El pacto</span>
+                <h2>¿Qué necesitáis acordar?</h2>
+              </div>
+              <button className="text-button" onClick={loadDemo} type="button">
+                Cargar ejemplo
+              </button>
+            </div>
 
-        {result && <ResultPanel result={result} />}
+            <div className="setup-fields">
+              <Field label="Objetivo del grupo">
+                <textarea
+                  maxLength="3000"
+                  onChange={(event) => setTopic(event.target.value)}
+                  placeholder="Ej. Encontrar un sitio para cenar este viernes"
+                  rows="3"
+                  value={topic}
+                />
+              </Field>
+              <div className="two-columns">
+                <Field label="Fecha o periodo">
+                  <input
+                    maxLength="300"
+                    onChange={(event) => setTargetDate(event.target.value)}
+                    placeholder="Viernes por la noche"
+                    value={targetDate}
+                  />
+                </Field>
+                <Field label="Zona">
+                  <input
+                    maxLength="300"
+                    onChange={(event) => setArea(event.target.value)}
+                    placeholder="Madrid centro"
+                    value={area}
+                  />
+                </Field>
+              </div>
+              <Field label="Contexto compartido" hint="Visible para todos">
+                <textarea
+                  maxLength="2500"
+                  onChange={(event) => setDetails(event.target.value)}
+                  placeholder="Qué tipo de acuerdo buscáis y cualquier dato que el grupo ya conozca"
+                  rows="3"
+                  value={details}
+                />
+              </Field>
+            </div>
+
+            <div className="participant-section">
+              <div className="participant-title">
+                <div>
+                  <span className="step-number">02</span>
+                  <span className="eyebrow">Participantes</span>
+                  <h2>Un agente por persona</h2>
+                </div>
+                <span>{participants.length}/{MAX_PARTICIPANTS}</span>
+              </div>
+
+              <div className="participant-tabs" role="tablist" aria-label="Participantes">
+                {participants.map((participant, index) => (
+                  <button
+                    aria-selected={participant.id === activeParticipantId}
+                    className={
+                      participant.id === activeParticipantId
+                        ? 'participant-tab active'
+                        : 'participant-tab'
+                    }
+                    key={participant.id}
+                    onClick={() => setActiveParticipantId(participant.id)}
+                    role="tab"
+                    type="button"
+                  >
+                    <Avatar name={participant.name} index={index} small />
+                    <span>{participant.name}</span>
+                  </button>
+                ))}
+                {participants.length < MAX_PARTICIPANTS && (
+                  <button
+                    aria-label="Añadir participante"
+                    className="add-participant"
+                    onClick={addParticipant}
+                    type="button"
+                  >
+                    <Icon name="plus" />
+                  </button>
+                )}
+              </div>
+
+              {activeParticipant && (
+                <ParticipantEditor
+                  canRemove={participants.length > 2}
+                  index={activeIndex}
+                  onChange={updateParticipant}
+                  onRemove={removeParticipant}
+                  participant={activeParticipant}
+                />
+              )}
+            </div>
+
+            {error && (
+              <div className="error-banner" role="alert">
+                <Icon name="x" size={16} />
+                {error}
+              </div>
+            )}
+
+            <button
+              className="negotiate-button"
+              disabled={runStatus === 'negotiating'}
+              onClick={() => negotiate(1)}
+              type="button"
+            >
+              <span>
+                <Icon name="users" size={19} />
+                Iniciar negociación
+              </span>
+              <Icon name="arrow" size={20} />
+            </button>
+            <p className="mvp-note">
+              MVP privado: configura aquí los perfiles. La versión con enlaces
+              personales permitirá que cada participante complete el suyo.
+            </p>
+          </aside>
+
+          <section className="negotiation-panel" aria-live="polite">
+            {runStatus === 'negotiating' ? (
+              <NegotiatingState participants={participants} round={round} />
+            ) : result ? (
+              <ProposalCard
+                feedback={feedback}
+                onCopy={copyAgreement}
+                onFeedback={(id, value) =>
+                  setFeedback((current) => ({ ...current, [id]: value }))
+                }
+                onNextRound={() => negotiate(round + 1)}
+                onReset={resetPact}
+                onVote={(id, vote) =>
+                  setVotes((current) => ({ ...current, [id]: vote }))
+                }
+                participants={participants}
+                result={result}
+                votes={votes}
+              />
+            ) : (
+              <EmptyNegotiation participants={participants} />
+            )}
+          </section>
+        </section>
       </main>
 
-      <footer className="footer">
-        <span>Nexo Research</span>
-        <p>Un solo modelo. Distintos roles. Un proceso verificable.</p>
-        <a href={GITHUB_URL} target="_blank" rel="noreferrer">
-          <Icon name="github" size={15} />
-          Proyecto en GitHub
-        </a>
+      {copyLabel && <div className="toast">{copyLabel}</div>}
+
+      <footer>
+        <div>
+          <span className="brand-footer">Nexo Pact</span>
+          <p>Agentes personales. Preferencias protegidas. Acuerdos humanos.</p>
+        </div>
+        <span>Gemini coordina; las personas deciden.</span>
       </footer>
     </div>
   );

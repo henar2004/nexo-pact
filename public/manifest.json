@@ -1,6 +1,6 @@
 {
-  "short_name": "Nexo",
-  "name": "Nexo Research",
+  "short_name": "Nexo Pact",
+  "name": "Nexo Pact — Acuerdos mediados por agentes",
   "icons": [
     {
       "src": "favicon.svg",
@@ -11,6 +11,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#18221f",
-  "background_color": "#f2eee6"
+  "theme_color": "#171719",
+  "background_color": "#f5f2eb"
 }

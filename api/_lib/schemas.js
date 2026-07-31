@@ -1,127 +1,150 @@
-const { agentIds } = require('./agents');
-
-const planSchema = {
+const positionSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    title: {
+    participantId: {
       type: 'string',
-      description: 'Nombre corto del proceso, con un máximo aproximado de seis palabras.',
+      description: 'Identificador exacto del participante representado.',
     },
-    summary: {
+    status: {
       type: 'string',
-      description: 'Explicación breve de la estrategia elegida por el gerente.',
+      enum: ['open', 'cautious', 'blocked'],
+      description: 'Grado de compatibilidad de la posición actual con el pacto.',
     },
-    steps: {
+    publicMessage: {
+      type: 'string',
+      description:
+        'Mensaje público breve. Debe proteger las notas privadas y revelar solo lo necesario para negociar.',
+    },
+    priorities: {
       type: 'array',
-      minItems: 2,
       maxItems: 5,
       items: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          id: {
+          label: { type: 'string' },
+          level: {
             type: 'string',
-            description: 'Identificador secuencial: step_1, step_2, etc.',
-          },
-          agent: {
-            type: 'string',
-            enum: agentIds,
-          },
-          title: {
-            type: 'string',
-            description: 'Nombre corto y comprensible de la fase.',
-          },
-          purpose: {
-            type: 'string',
-            description: 'Motivo por el que esta fase es necesaria.',
-          },
-          task: {
-            type: 'string',
-            description: 'Instrucción concreta que recibirá el agente.',
-          },
-          dependsOn: {
-            type: 'array',
-            maxItems: 4,
-            items: { type: 'string' },
-            description: 'Identificadores de pasos anteriores necesarios.',
-          },
-          acceptanceCriteria: {
-            type: 'array',
-            minItems: 1,
-            maxItems: 4,
-            items: { type: 'string' },
-          },
-          onRejectStep: {
-            type: 'string',
-            description: 'Paso anterior al que volver si la revisión falla, o cadena vacía.',
-          },
-          maxAttempts: {
-            type: 'integer',
-            minimum: 1,
-            maximum: 2,
+            enum: ['required', 'preferred'],
           },
         },
-        required: [
-          'id',
-          'agent',
-          'title',
-          'purpose',
-          'task',
-          'dependsOn',
-          'acceptanceCriteria',
-          'onRejectStep',
-          'maxAttempts',
-        ],
+        required: ['label', 'level'],
       },
     },
-  },
-  required: ['title', 'summary', 'steps'],
-};
-
-const reviewSchema = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    approved: {
-      type: 'boolean',
-      description: 'Indica si el trabajo puede pasar a la siguiente fase.',
+    concessions: {
+      type: 'array',
+      maxItems: 4,
+      items: { type: 'string' },
+      description: 'Aspectos en los que el agente puede ceder.',
     },
-    score: {
+    ideas: {
+      type: 'array',
+      maxItems: 4,
+      items: { type: 'string' },
+      description: 'Opciones concretas que podrían acercar al grupo.',
+    },
+    compatibilityScore: {
       type: 'integer',
       minimum: 0,
       maximum: 100,
     },
-    summary: {
+  },
+  required: [
+    'participantId',
+    'status',
+    'publicMessage',
+    'priorities',
+    'concessions',
+    'ideas',
+    'compatibilityScore',
+  ],
+};
+
+const mediationSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    mediatorMessage: {
       type: 'string',
-      description: 'Diagnóstico breve de la revisión.',
+      description: 'Explicación breve de cómo se ha construido el acuerdo.',
     },
-    issues: {
-      type: 'array',
-      maxItems: 5,
-      items: { type: 'string' },
+    consensusScore: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 100,
     },
-    requiredChanges: {
-      type: 'array',
-      maxItems: 5,
-      items: { type: 'string' },
+    needsAnotherRound: {
+      type: 'boolean',
+      description: 'Indica si quedan conflictos públicos importantes por resolver.',
     },
-    finalText: {
-      type: 'string',
-      description: 'Versión aprobada o corregida del material. Puede quedar vacía si se rechaza.',
+    proposal: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        headline: {
+          type: 'string',
+          description: 'Nombre breve y atractivo de la propuesta.',
+        },
+        when: {
+          type: 'string',
+          description: 'Fecha y hora propuestas, o "Por confirmar".',
+        },
+        where: {
+          type: 'string',
+          description: 'Lugar o zona propuesta, o "Por confirmar".',
+        },
+        estimatedCost: {
+          type: 'string',
+          description: 'Coste estimado por persona o total, o "Por confirmar".',
+        },
+        description: {
+          type: 'string',
+          description: 'Resumen concreto del plan propuesto.',
+        },
+        steps: {
+          type: 'array',
+          maxItems: 6,
+          items: { type: 'string' },
+        },
+        whyItWorks: {
+          type: 'array',
+          maxItems: 6,
+          items: { type: 'string' },
+        },
+        compromises: {
+          type: 'array',
+          maxItems: 5,
+          items: { type: 'string' },
+        },
+        pendingQuestions: {
+          type: 'array',
+          maxItems: 5,
+          items: { type: 'string' },
+        },
+      },
+      required: [
+        'headline',
+        'when',
+        'where',
+        'estimatedCost',
+        'description',
+        'steps',
+        'whyItWorks',
+        'compromises',
+        'pendingQuestions',
+      ],
     },
   },
   required: [
-    'approved',
-    'score',
-    'summary',
-    'issues',
-    'requiredChanges',
-    'finalText',
+    'mediatorMessage',
+    'consensusScore',
+    'needsAnotherRound',
+    'proposal',
   ],
 };
 
 module.exports = {
-  planSchema,
-  reviewSchema,
+  mediationSchema,
+  positionSchema,
 };
