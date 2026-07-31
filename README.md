@@ -3,6 +3,10 @@
 **Agentes personales que negocian planes de grupo sin revelar las preferencias
 privadas de sus propietarios.**
 
+[Abrir Nexo Pact](https://vercel.com/henar2004s-projects/nexo-pact)
+·
+[Ver portafolio](https://vercel.com/henar2004s-projects/portafolio)
+
 Nexo Pact transforma una conversación interminable de grupo en una propuesta
 concreta. Cada participante dispone de un agente Gemini independiente. Los
 agentes preparan sus posiciones en paralelo y un mediador neutral busca un punto
