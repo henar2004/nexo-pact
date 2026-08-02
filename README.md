@@ -3,9 +3,9 @@
 **Agentes personales que negocian planes de grupo sin revelar las preferencias
 privadas de sus propietarios.**
 
-[Abrir Nexo Pact](https://vercel.com/henar2004s-projects/nexo-pact)
+[Abrir web](https://nexo-pact.vercel.app/)
 ·
-[Ver portafolio](https://vercel.com/henar2004s-projects/portafolio)
+[Ver proyecto](https://henar-portafolio.vercel.app/)
 
 Nexo Pact transforma una conversación interminable de grupo en una propuesta
 concreta. Cada participante dispone de un agente Gemini independiente. Los
@@ -132,7 +132,17 @@ deberá incorporar:
 │   ├── index.html
 │   └── manifest.json
 ├── src/
-│   ├── App.js                # Experiencia completa de Nexo Pact
+│   ├── components/
+│   │   ├── common/           # Elementos reutilizables de interfaz
+│   │   ├── layout/           # Cabecera, portada y pie
+│   │   ├── negotiation/      # Estados y resultados de la negociación
+│   │   └── pact/             # Configuración del pacto y participantes
+│   ├── data/demo.js          # Datos del ejemplo guiado
+│   ├── hooks/                # Estado derivado y comprobación de Gemini
+│   ├── services/api.js       # Cliente de la API del frontend
+│   ├── utils/participants.js # Creación de participantes
+│   ├── config.js             # Constantes compartidas
+│   ├── App.js                # Estado y orquestación de la experiencia
 │   ├── App.css               # Diseño responsive
 │   ├── App.test.js           # Pruebas del flujo principal
 │   ├── index.css

@@ -107,7 +107,7 @@ test('renders the Nexo Pact workspace', async () => {
   ).toBeInTheDocument();
   expect(
     screen.getByRole('link', { name: /github/i })
-  ).toHaveAttribute('href', 'https://github.com/henar2004/create-react-app');
+  ).toHaveAttribute('href', 'https://github.com/henar2004/nexo-pact');
 
   await waitFor(() =>
     expect(screen.getByText(/gemini conectado/i)).toBeInTheDocument()
